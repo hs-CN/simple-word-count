@@ -1,7 +1,6 @@
 # Description
-a simple word count function, try to get same result with Microsoft Office Word application.
-
-Not guarantee same result on special characters. Such like Emoji “😘😦😒” is count 1 in Microsoft Office Word, but 3 by word_count.
+a simple word count function, try to get same result with Microsoft Office Word application.  
+**Not guarantee** same result on special characters. Such like Emoji “😘😦😒” is count `1` in Microsoft Office Word, but `3` by word_count.
 
 # Examples
 ``` rust
