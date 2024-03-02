@@ -1,11 +1,11 @@
 [package]
 name = "simple-word-count"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "a simple word count function, try to get same result with Microsoft Office Word application."
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/hs-CN/simple-word-count"
-keywords = ["word", "count", "counter"]
+keywords = ["word", "count", "counter", "word-count", "word-counter"]
 categories = ["text-processing"]
 readme = "README.md"
 
