@@ -1,0 +1,64 @@
+{
+  "name": "simple-word-count",
+  "displayName": "simple-word-count",
+  "description": "a simple word count extension for plaintext",
+  "version": "0.0.1",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.87.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onLanguage:plaintext"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "simple-word-count.count",
+        "title": "Word Count Run"
+      },
+      {
+        "command": "simple-word-count.activate",
+        "title": "Word Count Activate (current)"
+      },
+      {
+        "command": "simple-word-count.activateAll",
+        "title": "Word Count Activate (always)"
+      }
+    ],
+    "configuration": {
+      "title": "Simple Word Count",
+      "properties": {
+        "SimpleWordCount.ActivateFileExtensions": {
+          "type": "array",
+          "default": [
+            ".txt"
+          ],
+          "description": "file extensions can be activated"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.87.0",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "18.x",
+    "@typescript-eslint/eslint-plugin": "^7.0.2",
+    "@typescript-eslint/parser": "^7.0.2",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3",
+    "@vscode/test-cli": "^0.0.6",
+    "@vscode/test-electron": "^2.3.9"
+  }
+}
