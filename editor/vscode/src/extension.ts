@@ -1,89 +1,357 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as path from 'path';
 import * as child_process from 'child_process';
 import * as net from 'net';
 import * as readline from 'readline';
 
 export function activate(context: vscode.ExtensionContext) {
-	const service = new Service(context.extensionPath);
+	let controller: ServiceController | undefined;
+	let wordCount = false;
+	let wordCountAll = false;
+	let activateCurrent = false;
+	let activateAlways = false;
 
-	let countCommand = vscode.commands.registerCommand('simple-word-count.count', () => {
-		service.countPlaintextStr('hello world', (n) => { console.log(n); });
+	createSevice(context.extensionUri).then((service) => {
+		controller = new ServiceController(service, context.extensionUri);
+		context.subscriptions.push(controller);
+		if (wordCount) controller.wordCount();
+		if (wordCountAll) controller.wordCountAll();
+		if (activateCurrent) controller.activateCurrent();
+		if (activateAlways) controller.activateAlways();
+	}).catch((error) => vscode.window.showErrorMessage(error))
+
+	let wordCountCommand = vscode.commands.registerCommand('simple-word-count.wordCount', () => {
+		if (controller) controller.wordCount();
+		else wordCount = true;
 	});
-	let activateCommand = vscode.commands.registerCommand('simple-word-count.activate', () => {
-		service.countPlaintextFile("D:\\book\\第2章 修炼功法、血咒炼体.txt", (n) => { console.log(n); });
-	})
-	let activateAllCommand = vscode.commands.registerCommand('simple-word-count.activateAll', () => {
-	})
+	let wordCountAllCommand = vscode.commands.registerCommand('simple-word-count.wordCountAll', () => {
+		if (controller) controller.wordCountAll();
+		else wordCountAll = true;
+	});
+	let activateCurrentCommand = vscode.commands.registerCommand('simple-word-count.activateCurrent', () => {
+		if (controller) controller.activateCurrent();
+		else activateCurrent = true;
+	});
+	let activateAlwaysCommand = vscode.commands.registerCommand('simple-word-count.activateAlways', () => {
+		if (controller) controller.activateAlways();
+		else activateAlways = true;
+	});
 
-	context.subscriptions.push(service);
-	context.subscriptions.push(countCommand);
-	context.subscriptions.push(activateCommand);
-	context.subscriptions.push(activateAllCommand);
-	service.initialize();
+	context.subscriptions.push(wordCountCommand);
+	context.subscriptions.push(wordCountAllCommand);
+	context.subscriptions.push(activateCurrentCommand);
+	context.subscriptions.push(activateAlwaysCommand);
 }
 
 export function deactivate() { }
 
 
-class Service {
-	private socket: net.Socket | undefined;
-	private childProcess: child_process.ChildProcess | undefined;
-	private servicePath: string;
-	private sessionCallback: { [key: string]: (n: string) => void } = {};
-	private initializing: boolean = false;
-	private sessionId: number = 0;
+class ServiceController {
+	private service: Service;
+	private activedTextEditor: vscode.TextEditor | undefined;
+	private activateFileExtensions: string[] = [];
+	private activateUntitled = false;
+	private showLine = false;
+	private showSelection = false;
+	private selectionShowDelay = 300;
+	private statusBarItemPriority = 100;
+	private selectionTimeout: NodeJS.Timeout | undefined;
+	private statusBarItem: vscode.StatusBarItem;
+	private activateFiles: string[] = [];
+	private alwaysActive = false;
+	private selectionCount: string | undefined;
+	private totalCount: string | undefined;
+	private panel: vscode.WebviewPanel | undefined;
+	private shouldSpin = false;
+	private extensionUri: vscode.Uri;
 
-	constructor(extensionPath: string) {
-		if (process.platform === 'win32')
-			this.servicePath = extensionPath + '/assets/simple-word-count.exe';
-		else
-			this.servicePath = extensionPath + '/assets/simple-word-count';
+	constructor(service: Service, extensionUri: vscode.Uri) {
+		this.loadConfig();
+		this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, this.statusBarItemPriority);
+		this.statusBarItem.command = "simple-word-count.wordCountAll";
+		this.statusBarItem.tooltip = "count all";
+		this.service = service;
+		this.activedTextEditor = vscode.window.activeTextEditor;
+		this.extensionUri = extensionUri;
+
+		vscode.workspace.onDidChangeConfiguration((e) => {
+			if (e.affectsConfiguration('SimpleWordCount'))
+				this.loadConfig();
+		})
+		vscode.window.onDidChangeActiveTextEditor((e) => {
+			this.activedTextEditor = e;
+			this.totalCount = undefined;
+			this.selectionCount = undefined;
+			this.updateStatusBarItem();
+			this.updateTotalCount();
+		})
+		vscode.workspace.onDidChangeTextDocument((e) => this.updateTotalCount())
+		vscode.window.onDidChangeTextEditorSelection((e) => this.updateSelectionCount(e));
+
+		this.updateTotalCount();
 	}
 
-	initialize() {
-		if (this.childProcess && this.socket) return
-		if (fs.existsSync(this.servicePath)) {
-			if (this.initializing) return;
-			this.initializing = true;
-			vscode.window.withProgress({
-				location: vscode.ProgressLocation.Notification,
-				title: "simple-word-count",
-				cancellable: false
-			}, (progress, token) => {
-				return new Promise<string | undefined>((resolve, reject) => {
-					progress.report({ message: "start service process..." });
-					const child = child_process.spawn(this.servicePath)
-						.on('error', (error) => resolve(error.message));
-					readline.createInterface({ input: child.stdout })
-						.on('line', (line) => {
-							progress.report({ message: `connect to service 127.0.0.1:${line}` });
-							const socket = net.createConnection(Number(line), "127.0.0.1", () => resolve(undefined));
-							readline.createInterface({ input: socket }).on('line', (line) => {
-								const cmd = line.split(';');
-								if (cmd.length === 2) {
-									const sessionId = cmd[0];
-									const n = cmd[1];
-									if (this.sessionCallback[sessionId]) {
-										this.sessionCallback[sessionId](n);
-										delete this.sessionCallback[sessionId];
-									}
-								}
-							});
-							this.socket = socket;
-						})
-					this.childProcess = child;
-				})
-			}).then((result) => {
-				if (result) vscode.window.showErrorMessage(result);
-				this.initializing = false;
+	private loadConfig() {
+		const config = vscode.workspace.getConfiguration('SimpleWordCount');
+		this.activateFileExtensions = (config.get('ActivateFileExtensions') as string ?? ".txt").split(';').filter((f) => f.length > 0);
+		this.activateUntitled = config.get('ActivateUntitled') ?? true;
+		this.showSelection = config.get('ShowSelection') ?? true;
+		this.showLine = config.get('ShowLine') ?? true;
+		this.selectionShowDelay = config.get('SelectionShowDelay') ?? 300;
+		this.statusBarItemPriority = config.get('StatusBarItemPriority') ?? 100;
+	}
+
+	private updateStatusBarItem() {
+		if (this.totalCount) {
+			const icon = this.shouldSpin ? "$(sync~spin)" : "$(note)"
+			if (this.selectionCount)
+				this.statusBarItem.text = `${icon} ${this.selectionCount}/${this.totalCount}`;
+			else
+				this.statusBarItem.text = `${icon} ${this.totalCount}`;
+			this.statusBarItem.show();
+		} else
+			this.statusBarItem.hide();
+	}
+
+	private updateTotalCount() {
+		if (this.activedTextEditor && this.shouldActivate())
+			this.service.countTextStr(this.activedTextEditor.document.getText(), (n) => {
+				this.totalCount = n;
+				this.updateStatusBarItem();
 			})
-		} else {
-			vscode.window.showErrorMessage(`service not found: ${this.servicePath}`);
+	}
+
+	private updateSelectionCount(event: vscode.TextEditorSelectionChangeEvent) {
+		if (this.shouldActivate()) {
+			if (this.showSelection || this.showLine) {
+				let text = "";
+				for (let index = 0; index < event.selections.length; index++) {
+					const selection = event.selections[index];
+					if (selection.isEmpty && this.showLine) {
+						text += event.textEditor.document.lineAt(selection.start.line).text + "\n";
+					} else if (this.showSelection) {
+						text += event.textEditor.document.getText(selection) + "\n";
+					}
+				}
+				text = text.trim();
+
+				if (this.selectionTimeout)
+					clearTimeout(this.selectionTimeout);
+
+				if (text.length > 0) {
+					this.selectionCount = "?";
+					this.updateStatusBarItem();
+					this.selectionTimeout = setTimeout(() => {
+						this.selectionTimeout = undefined;
+						this.service.countTextStr(text, (n) => {
+							this.selectionCount = n;
+							this.updateStatusBarItem();
+						})
+					}, this.selectionShowDelay);
+				} else {
+					this.selectionCount = undefined;
+					this.updateStatusBarItem();
+				}
+			}
 		}
 	}
 
-	getSessionId() {
+	private shouldActivate() {
+		if (this.activedTextEditor) {
+			if (this.alwaysActive)
+				return true;
+			if (this.activedTextEditor.document.isUntitled)
+				return this.activateUntitled
+
+			const filePath = this.activedTextEditor.document.uri.fsPath;
+
+			for (let index = 0; index < this.activateFileExtensions.length; index++) {
+				const element = this.activateFileExtensions[index];
+				if (filePath.endsWith(element))
+					return true
+			}
+			if (this.activateFiles.includes(filePath))
+				return true;
+		}
+		return false;
+	}
+
+	wordCount() {
+		if (this.activedTextEditor)
+			this.service.countTextStr(this.activedTextEditor.document.getText(), (n) => vscode.window.showInformationMessage(`${n} words`));
+		else
+			vscode.window.showWarningMessage('no active text editor');
+	}
+
+	wordCountAll() {
+		if (this.shouldSpin) return;
+		this.shouldSpin = true;
+		this.updateStatusBarItem();
+
+		const folders = vscode.workspace.workspaceFolders;
+		if (folders) {
+			this.panel = vscode.window.createWebviewPanel(
+				'simple-word-count.wordCountAll',
+				'statistics',
+				vscode.ViewColumn.One,
+				{ enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "assets")] });
+			this.panel.webview.html = "<h1>Hello World</h1>";
+			this.panel.onDidDispose(() => this.panel = undefined);
+
+			const fileTree: Folder[] = []
+			let filePathList: string[] = []
+			for (let index = 0; index < folders.length; index++) {
+				const folder = folders[index];
+				const { fileTree: tree, filePathList: list } = getFilesAndDirectories(folder.uri.fsPath, this.activateFileExtensions);
+				fileTree.push(tree)
+				filePathList = filePathList.concat(list)
+			}
+
+			const list: { [key: string]: number } = {}
+			let count = 0;
+			for (let index = 0; index < filePathList.length; index++) {
+				const path = filePathList[index];
+				this.service.countTextFile(path, (n) => {
+					count++;
+					list[path] = Number(n);
+					if (count === filePathList.length) {
+						this.shouldSpin = false;
+						this.updateStatusBarItem();
+						if (this.panel)
+							this.panel.webview.postMessage({ trees: fileTree, list: list });
+					}
+				});
+			}
+		} else
+			vscode.window.showWarningMessage('not in workspace');
+	}
+
+	activateCurrent() {
+		if (this.activedTextEditor) {
+			if (this.activedTextEditor.document.isUntitled)
+				vscode.window.showWarningMessage('not regular file');
+			else {
+				this.activateFiles.push(this.activedTextEditor.document.uri.fsPath);
+				this.updateTotalCount();
+			}
+		} else {
+			vscode.window.showWarningMessage('no active text editor');
+		}
+	}
+
+	activateAlways() {
+		this.alwaysActive = true;
+		this.updateTotalCount();
+	}
+
+	dispose() {
+		this.service.dispose();
+		this.statusBarItem.dispose();
+		if (this.panel)
+			this.panel.dispose();
+	}
+}
+
+interface File {
+	name: string;
+	path: string;
+}
+
+interface Folder {
+	name: string;
+	path: string;
+	folders: Folder[];
+	files: File[];
+}
+
+function getFilesAndDirectories(dir: string, fileExtensions: string[]): { fileTree: Folder, filePathList: string[] } {
+	const fileTree: Folder = { name: path.basename(dir), path: dir, folders: [], files: [] };
+	let filePathList: string[] = []
+
+	const files = fs.readdirSync(dir);
+	for (let index = 0; index < files.length; index++) {
+		const file = files[index];
+		const filePath = path.join(dir, file);
+		const fileStat = fs.statSync(filePath);
+		if (fileStat.isDirectory()) {
+			let { fileTree: tree, filePathList: list } = getFilesAndDirectories(filePath, fileExtensions);
+			fileTree.folders.push(tree);
+			filePathList = filePathList.concat(list);
+		} else {
+			for (let index = 0; index < fileExtensions.length; index++) {
+				const extension = fileExtensions[index];
+				if (filePath.endsWith(extension)) {
+					fileTree.files.push({ name: file, path: filePath });
+					filePathList.push(filePath);
+				}
+			}
+		}
+	}
+
+	return { fileTree: fileTree, filePathList: filePathList };
+}
+
+function createSevice(extensionUri: vscode.Uri): Promise<Service> {
+	let servicePath = vscode.Uri.joinPath(extensionUri, 'assets', 'bin')
+	if (process.platform === 'win32')
+		servicePath = vscode.Uri.joinPath(servicePath, 'win', 'simple-word-count.exe');
+	else if (process.platform === 'linux')
+		servicePath = vscode.Uri.joinPath(servicePath, 'linux', 'simple-word-count');
+	else if (process.platform === 'darwin')
+		servicePath = vscode.Uri.joinPath(servicePath, 'mac', 'simple-word-count');
+	else
+		return Promise.reject('unsupported platform: ' + process.platform);
+
+	if (!fs.existsSync(servicePath.fsPath))
+		return Promise.reject('service not found: ' + servicePath.fsPath);
+
+	return new Promise<Service>((resolve, reject) => {
+		const child = child_process.spawn(servicePath.fsPath)
+			.once('error', (error) => reject(error));
+		readline.createInterface({ input: child.stdout })
+			.once('line', (port) => {
+				const socket: net.Socket = net.createConnection(Number(port), "127.0.0.1");
+				socket.once('connect', () => resolve(new Service(child, socket)));
+				socket.once('error', (error) => reject(error));
+				socket.once('timeout', () => reject('connect to service timeout'));
+			})
+	})
+}
+
+class Service {
+	private childProcess: child_process.ChildProcess;
+	private socket: net.Socket;
+	private sessionCallback: { [key: string]: (n: string) => void } = {};
+	private sessionId: number = 0;
+
+	constructor(childProcess: child_process.ChildProcess, socket: net.Socket) {
+		this.childProcess = childProcess;
+		this.socket = socket;
+
+		childProcess.on('error', (error) => console.error(error));
+		childProcess.on('exit', () => console.error('child process exit'));
+
+		socket.on('error', (error) => console.error(error));
+		socket.on('close', () => console.error('socket close'));
+		socket.on('end', () => console.error('socket end'));
+		socket.on('timeout', () => console.error('socket timeout'));
+
+		readline.createInterface({ input: socket })
+			.on('line', (line) => {
+				const cmd = line.split(';');
+				if (cmd.length === 2) {
+					const sessionId = cmd[0];
+					const n = cmd[1];
+					if (this.sessionCallback[sessionId]) {
+						this.sessionCallback[sessionId](n);
+						delete this.sessionCallback[sessionId];
+					}
+				}
+			});
+	}
+
+	private getSessionId() {
 		if (this.sessionId === 0xFFFFFFFF)
 			this.sessionId = 0;
 		else
@@ -91,37 +359,27 @@ class Service {
 		return this.sessionId;
 	}
 
-	countPlaintextStr(str: string, cb: (n: string) => void) {
-		if (this.socket) {
-			const strBuffer = Buffer.from(str);
-			const sessionId = this.getSessionId().toString();
-			const cmd = `txt;str;${sessionId};${strBuffer.length}\n`
-			this.sessionCallback[sessionId] = cb;
-			this.socket.write(cmd);
-			this.socket.write(strBuffer);
-		}
+	countTextStr(str: string, cb: (n: string) => void) {
+		const strBuffer = Buffer.from(str);
+		const sessionId = this.getSessionId().toString();
+		const cmd = `txt;str;${sessionId};${strBuffer.length}\n`
+		this.sessionCallback[sessionId] = cb;
+		this.socket.write(cmd);
+		this.socket.write(strBuffer);
 	}
 
-	countPlaintextFile(filePath: string, cb: (n: string) => void) {
-		if (this.socket) {
-			const strBuffer = Buffer.from(filePath);
-			const sessionId = this.getSessionId().toString();
-			const cmd = `txt;file;${sessionId};${strBuffer.length}\n`
-			this.sessionCallback[sessionId] = cb;
-			this.socket.write(cmd);
-			this.socket.write(strBuffer);
-		}
+	countTextFile(filePath: string, cb: (n: string) => void) {
+		const strBuffer = Buffer.from(filePath);
+		const sessionId = this.getSessionId().toString();
+		const cmd = `txt;file;${sessionId};${strBuffer.length}\n`
+		this.sessionCallback[sessionId] = cb;
+		this.socket.write(cmd);
+		this.socket.write(strBuffer);
 	}
 
 	dispose() {
-		if (this.socket) {
-			this.socket.write('\n');
-			this.socket.destroy();
-			this.socket = undefined;
-		}
-		if (this.childProcess) {
-			this.childProcess.kill();
-			this.childProcess = undefined;
-		}
+		this.socket.write('\n');
+		this.socket.destroy();
+		this.childProcess.kill();
 	}
 }

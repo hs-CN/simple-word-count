@@ -17,15 +17,19 @@
   "contributes": {
     "commands": [
       {
-        "command": "simple-word-count.count",
-        "title": "Word Count Run"
+        "command": "simple-word-count.wordCount",
+        "title": "Word Count Run (current)"
       },
       {
-        "command": "simple-word-count.activate",
+        "command": "simple-word-count.wordCountAll",
+        "title": "Word Count Run (all)"
+      },
+      {
+        "command": "simple-word-count.activateCurrent",
         "title": "Word Count Activate (current)"
       },
       {
-        "command": "simple-word-count.activateAll",
+        "command": "simple-word-count.activateAlways",
         "title": "Word Count Activate (always)"
       }
     ],
@@ -33,11 +37,34 @@
       "title": "Simple Word Count",
       "properties": {
         "SimpleWordCount.ActivateFileExtensions": {
-          "type": "array",
-          "default": [
-            ".txt"
-          ],
-          "description": "file extensions can be activated"
+          "type": "string",
+          "default": ".txt",
+          "description": "file extensions can be activated, use semicolon to separate multiple file extensions. eg: .txt;.md"
+        },
+        "SimpleWordCount.ActivateUntitled": {
+          "type": "boolean",
+          "default": true,
+          "description": "activate word count for untitled"
+        },
+        "SimpleWordCount.ShowSelection": {
+          "type": "boolean",
+          "default": true,
+          "description": "show selection word count"
+        },
+        "SimpleWordCount.ShowLine": {
+          "type": "boolean",
+          "default": true,
+          "description": "show line word count"
+        },
+        "SimpleWordCount.SelectionShowDelay": {
+          "type": "number",
+          "default": 300,
+          "description": "line / selection word count delay (ms)"
+        },
+        "SimpleWordCount.StatusBarItemPriority": {
+          "type": "number",
+          "default": 100,
+          "description": "The priority of the item. Higher values mean the item should be shown more to the left."
         }
       }
     }

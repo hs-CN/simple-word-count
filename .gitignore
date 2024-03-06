@@ -1,5 +1,1 @@
 /target
-/editor/vscode/node_modules
-/editor/vscode/out
-/editor/vscode/assets/*.exe
-/editor/vscode/.vscode
