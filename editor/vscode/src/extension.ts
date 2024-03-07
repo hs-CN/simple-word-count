@@ -94,7 +94,8 @@ class ServiceController {
 
 	private loadConfig() {
 		const config = vscode.workspace.getConfiguration('SimpleWordCount');
-		this.activateFileExtensions = (config.get('ActivateFileExtensions') as string ?? ".txt").split(';').filter((f) => f.length > 0);
+		this.activateFileExtensions = (config.get('ActivateFileExtensions') as string ?? ".txt;.md")
+			.toLocaleLowerCase().split(';').filter((f) => f.length > 0);
 		this.activateUntitled = config.get('ActivateUntitled') ?? true;
 		this.showSelection = config.get('ShowSelection') ?? true;
 		this.showLine = config.get('ShowLine') ?? true;
@@ -165,12 +166,9 @@ class ServiceController {
 				return this.activateUntitled
 
 			const filePath = this.activedTextEditor.document.uri.fsPath;
-
-			for (let index = 0; index < this.activateFileExtensions.length; index++) {
-				const element = this.activateFileExtensions[index];
-				if (filePath.endsWith(element))
-					return true
-			}
+			const ext = path.extname(filePath).toLocaleLowerCase();
+			if (this.activateFileExtensions.includes(ext))
+				return true
 			if (this.activateFiles.includes(filePath))
 				return true;
 		}
@@ -302,15 +300,15 @@ function getFilesAndDirectories(dir: string, fileExtensions: string[]): { fileTr
 		const fileStat = fs.statSync(filePath);
 		if (fileStat.isDirectory()) {
 			let { fileTree: tree, filePathList: list } = getFilesAndDirectories(filePath, fileExtensions);
-			fileTree.folders.push(tree);
-			filePathList = filePathList.concat(list);
+			if (list.length > 0) {
+				fileTree.folders.push(tree);
+				filePathList = filePathList.concat(list);
+			}
 		} else {
-			for (let index = 0; index < fileExtensions.length; index++) {
-				const extension = fileExtensions[index];
-				if (filePath.endsWith(extension)) {
-					fileTree.files.push({ name: file, path: filePath });
-					filePathList.push(filePath);
-				}
+			const ext = path.extname(file).toLocaleLowerCase();
+			if (fileExtensions.includes(ext)) {
+				fileTree.files.push({ name: file, path: filePath });
+				filePathList.push(filePath);
 			}
 		}
 	}

@@ -11,7 +11,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:plaintext"
+    "onLanguage:plaintext",
+    "onLanguage:markdown"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -38,7 +39,7 @@
       "properties": {
         "SimpleWordCount.ActivateFileExtensions": {
           "type": "string",
-          "default": ".txt",
+          "default": ".txt;.md",
           "description": "file extensions can be activated, use semicolon to separate multiple file extensions. eg: .txt;.md"
         },
         "SimpleWordCount.ActivateUntitled": {

@@ -1,71 +1,47 @@
-# simple-word-count README
+# simple-word-count
 
-This is the README for your extension "simple-word-count". After writing up a brief description, we recommend including the following sections.
+一个简单的数字统计插件，默认纯文本文件(.txt)或markdown文件(.md)激活, 可以在配置中添加其他文件后缀。  
+This is a simple word count extension for plaintext and markdown files. You can add other file extensions in configuration.
 
-## Features
+![](动画.gif)
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+# 特性
+这个插件会自动被txt、md或者untitled激活。
 
-For example if there is an image subfolder under your extension project workspace:
+如果你想为其他文件类型激活插件，可以使用命令手动激活:
++ `Word Count Run (current)`: 为当前文件统计一次。
++ `Word Count Run (all)`: 为所有文件做统计（匹配文件后缀的文件）,会以新网页tab形式展示结果。
++ `Word Count Activate (current)`: 为当前文件激活。
++ `Word Count Activate (always)`: 为所有文件激活。
 
-\!\[feature X\]\(images/feature-x.png\)
+如果你不想激活untitled，可以在配置中设置`ActivateUntitled`为`false`。
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+插件默认会统计鼠标选中的内容或者当前行。如果你不想显示选中内容的字数，可以在配置中设置`ShowSelection`为`false`。如果你不想显示当前行的字数，可以在配置中设置`ShowLine`为`false`。
 
-## Requirements
+你可以通过配置中的`StatusBarItemPriority`调整插件`StatusBarItem`显示的位置。值越大，显示位置越靠左。
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
 
-## Extension Settings
+# Features
+This extension will activate automatically for plaintext files、markdown files or untitled.
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+if you want to activate manually for other file types, use command:
++ `Word Count Run (current)`: count for current file once.
++ `Word Count Run (all)`: count for all files (which file extension is matched by configuration item `ActivateFileExtensions`) in workspace.
++ `Word Count Activate (current)`: activate for current file.
++ `Word Count Activate (always)`: activate for all files.
 
-For example:
+if you don't want to activate for untitled, set configuration item `ActivateUntitled` to `false`.
 
-This extension contributes the following settings:
+This extension will count for selection or line defaultly. If you don't want to show selection count, set configuration item `ShowSelection` to `false`. If you don't want to show line count, set configuration item `ShowLine` to `false`.
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+You can adjust `StatusBarItem` priority by setting configuration item `StatusBarItemPriority`.
 
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+# Configuration
+| Property | Default | Description |
+| --- | --- | --- |
+| `ActivateFileExtensions` | `.txt;.md` | 插件激活的文件后缀，用分号分隔。file extensions can be activated, use semicolon to separate multiple file extensions. eg: .txt;.md |
+| `ActivateUntitled` | `true` | 是否为未命名文件(untitled)激活。 activate word count for untitled |
+| `ShowSelection` | `true` | 显示选中内容的字数。show selection word count |
+| `ShowLine` | `true` | 显示当前行的字数。show line word count |
+| `SelectionShowDelay` | `300` | 选中或当前行显示的延时(ms) line / selection word count delay (ms) |
+| `StatusBarItemPriority` | `100` | 插件状态栏位置调整。StatusBarItem priority. Higher values mean the item should be shown more to the left.|
