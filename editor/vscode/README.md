@@ -3,14 +3,14 @@
 一个简单的数字统计插件，默认纯文本文件(.txt)或markdown文件(.md)激活, 可以在配置中添加其他文件后缀。  
 This is a simple word count extension for plaintext and markdown files. You can add other file extensions in configuration.
 
-![](动画.gif)
+![gif](https://github.com/hs-CN/simple-word-count/blob/master/editor/vscode/a.gif)
 
 # 特性
 这个插件会自动被txt、md或者untitled激活。
 
 如果你想为其他文件类型激活插件，可以使用命令手动激活:
 + `Word Count Run (current)`: 为当前文件统计一次。
-+ `Word Count Run (all)`: 为所有文件做统计（匹配文件后缀的文件）,会以新网页tab形式展示结果。
++ `Word Count Run (all)`: 为所有文件做统计（匹配文件后缀的文件）,会以网页Tab形式展示结果。
 + `Word Count Activate (current)`: 为当前文件激活。
 + `Word Count Activate (always)`: 为所有文件激活。
 
@@ -45,3 +45,8 @@ You can adjust `StatusBarItem` priority by setting configuration item `StatusBar
 | `ShowLine` | `true` | 显示当前行的字数。show line word count |
 | `SelectionShowDelay` | `300` | 选中或当前行显示的延时(ms) line / selection word count delay (ms) |
 | `StatusBarItemPriority` | `100` | 插件状态栏位置调整。StatusBarItem priority. Higher values mean the item should be shown more to the left.|
+
+# Others
+目前仅支持win32_x64平台，也许可以支持其他平台。主要问题在于此拓展功能依赖于rust编写的可执行文件，需要到目标平台进行编译。如果有需要，可以提issue。
+
+Only for win32_x64 now. Maybe can support other platforms. The main problem is that this extension depends on rust executable file, which needs to be compiled to the target platform. If you need, you can submit an issue.
