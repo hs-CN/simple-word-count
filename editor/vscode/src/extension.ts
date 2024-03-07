@@ -70,7 +70,7 @@ class ServiceController {
 		this.loadConfig();
 		this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, this.statusBarItemPriority);
 		this.statusBarItem.command = "simple-word-count.wordCountAll";
-		this.statusBarItem.tooltip = "count all";
+		this.statusBarItem.tooltip = "statistics";
 		this.service = service;
 		this.activedTextEditor = vscode.window.activeTextEditor;
 		this.extensionUri = extensionUri;
@@ -191,13 +191,40 @@ class ServiceController {
 
 		const folders = vscode.workspace.workspaceFolders;
 		if (folders) {
+			let assetsUri = vscode.Uri.joinPath(this.extensionUri, "assets", "assets");
+			let jsUri: vscode.Uri | undefined;
+			let cssUri: vscode.Uri | undefined;
+			let assetsFileName = fs.readdirSync(assetsUri.fsPath);
+			for (let index = 0; index < assetsFileName.length; index++) {
+				const fileName = assetsFileName[index];
+				if (fileName.endsWith(".js"))
+					jsUri = vscode.Uri.joinPath(assetsUri, fileName);
+				else if (fileName.endsWith(".css"))
+					cssUri = vscode.Uri.joinPath(assetsUri, fileName);
+			}
+			if (!jsUri || !cssUri) {
+				vscode.window.showWarningMessage('js/css assets not found');
+				return;
+			}
+
 			this.panel = vscode.window.createWebviewPanel(
 				'simple-word-count.wordCountAll',
 				'statistics',
 				vscode.ViewColumn.One,
-				{ enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "assets")] });
-			this.panel.webview.html = "<h1>Hello World</h1>";
+				{ enableScripts: true, retainContextWhenHidden: true });
 			this.panel.onDidDispose(() => this.panel = undefined);
+			jsUri = this.panel.webview.asWebviewUri(jsUri);
+			cssUri = this.panel.webview.asWebviewUri(cssUri);
+			this.panel.webview.html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="${cssUri}">
+</head>
+<body><div id="app"></div></body>
+<script src="${jsUri}"></script>
+</html>`;
 
 			const fileTree: Folder[] = []
 			let filePathList: string[] = []
@@ -260,13 +287,12 @@ interface File {
 
 interface Folder {
 	name: string;
-	path: string;
 	folders: Folder[];
 	files: File[];
 }
 
 function getFilesAndDirectories(dir: string, fileExtensions: string[]): { fileTree: Folder, filePathList: string[] } {
-	const fileTree: Folder = { name: path.basename(dir), path: dir, folders: [], files: [] };
+	const fileTree: Folder = { name: path.basename(dir), folders: [], files: [] };
 	let filePathList: string[] = []
 
 	const files = fs.readdirSync(dir);
@@ -293,7 +319,7 @@ function getFilesAndDirectories(dir: string, fileExtensions: string[]): { fileTr
 }
 
 function createSevice(extensionUri: vscode.Uri): Promise<Service> {
-	let servicePath = vscode.Uri.joinPath(extensionUri, 'assets', 'bin')
+	let servicePath = vscode.Uri.joinPath(extensionUri, 'bin')
 	if (process.platform === 'win32')
 		servicePath = vscode.Uri.joinPath(servicePath, 'win', 'simple-word-count.exe');
 	else if (process.platform === 'linux')
