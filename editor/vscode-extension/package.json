@@ -2,7 +2,7 @@
   "name": "simple-word-count",
   "displayName": "simple-word-count",
   "description": "a simple word count extension for plaintext or markdown file",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "author": {
     "name": "hs-CN",
     "url": "https://github.com/hs-CN"
