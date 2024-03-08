@@ -3,7 +3,7 @@
 一个简单的数字统计插件，默认纯文本文件(.txt)或markdown文件(.md)激活, 可以在配置中添加其他文件后缀。  
 This is a simple word count extension for plaintext and markdown files. You can add other file extensions in configuration.
 
-![gif](https://github.com/hs-CN/simple-word-count/raw/master/editor/vscode/a.gif)
+![gif](https://github.com/hs-CN/simple-word-count/raw/master/editor/vscode-extension/a.gif)
 
 # 特性
 这个插件会自动被txt、md或者untitled激活。
