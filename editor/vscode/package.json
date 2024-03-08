@@ -23,6 +23,7 @@
     "onLanguage:plaintext",
     "onLanguage:markdown"
   ],
+  "icon": "./icon.png",
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
