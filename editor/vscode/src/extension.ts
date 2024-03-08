@@ -317,18 +317,15 @@ function getFilesAndDirectories(dir: string, fileExtensions: string[]): { fileTr
 }
 
 function createSevice(extensionUri: vscode.Uri): Promise<Service> {
-	let servicePath = vscode.Uri.joinPath(extensionUri, 'bin')
+	const platform = process.platform;
+	const arch = process.arch;
+	let binName = "simple-word-count";
 	if (process.platform === 'win32')
-		servicePath = vscode.Uri.joinPath(servicePath, 'win', 'simple-word-count.exe');
-	else if (process.platform === 'linux')
-		servicePath = vscode.Uri.joinPath(servicePath, 'linux', 'simple-word-count');
-	else if (process.platform === 'darwin')
-		servicePath = vscode.Uri.joinPath(servicePath, 'mac', 'simple-word-count');
-	else
-		return Promise.reject('unsupported platform: ' + process.platform);
+		binName += '.exe';
+	let servicePath = vscode.Uri.joinPath(extensionUri, 'bin', platform, arch, binName);
 
 	if (!fs.existsSync(servicePath.fsPath))
-		return Promise.reject('service not found: ' + servicePath.fsPath);
+		return Promise.reject('service not found: ' + servicePath.fsPath + `. ${platform}-${arch} is not supported.`);
 
 	return new Promise<Service>((resolve, reject) => {
 		const child = child_process.spawn(servicePath.fsPath)
