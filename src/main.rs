@@ -5,10 +5,7 @@ use std::net::{Ipv4Addr, TcpListener};
 use std::sync::Arc;
 use std::thread::spawn;
 
-/// Protocol: CMD (1), ID (4), LEN (4), DATA (LEN)  
-/// CMD = 0x00 or other: Close Service
-/// CMD = 0x01: DATA is UTF-8 String Bytes  
-/// CMD = 0x02: DATA is File Path  
+/// Protocol: type;content_type;id;content_length\ncontent\n
 fn main() -> std::io::Result<()> {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
     println!("{}", listener.local_addr().unwrap().port());
